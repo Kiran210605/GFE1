@@ -27,6 +27,30 @@ The predictions are based on advanced forecasting models, including:
 
 You can provide historical data and select a future date to get demand predictions.
 """)
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+import joblib
+
+# Load Holt-Winters model parameters
+holt_winters_params = joblib.load('holt_winters_model_params.pkl')
+
+# Function to reinitialize the Holt-Winters model
+def initialize_holt_winters(data):
+    hw_model = ExponentialSmoothing(
+        data, trend='add', seasonal='add', seasonal_periods=7
+    )
+    hw_model_fit = hw_model.fit(smoothing_level=holt_winters_params['smoothing_level'],
+                                smoothing_trend=holt_winters_params['smoothing_trend'],
+                                smoothing_seasonal=holt_winters_params['smoothing_seasonal'],
+                                initial_level=holt_winters_params['initial_level'],
+                                initial_trend=holt_winters_params['initial_trend'],
+                                initial_seasonal=holt_winters_params['initial_seasonal'])
+    return hw_model_fit
+# Reinitialize Holt-Winters model with the current data
+hw_model_fit = initialize_holt_winters(data['Tenderstem'])
+
+# Forecast using the reinitialized model
+hw_forecast = hw_model_fit.forecast(steps=1)
+print(f"Holt-Winters Forecast: {hw_forecast[0]}")
 
 # Sidebar for Input
 st.sidebar.header("🛠️ User Input")
