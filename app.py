@@ -48,6 +48,14 @@ lag_7 = st.sidebar.number_input(f"Enter Lag-7 Demand for {selected_product}", va
 rolling_mean_7 = st.sidebar.number_input(f"Enter Rolling Mean for Last 7 Days for {selected_product}", value=290, step=10)
 
 # Convert inputs into a DataFrame for predictions
+# input_features = pd.DataFrame(
+#     {
+#         "lag_1": [lag_1],
+#         "lag_7": [lag_7],
+#         "rolling_mean_7": [rolling_mean_7],
+#     }
+# )
+# Ensure the input is in the correct format
 input_features = pd.DataFrame(
     {
         "lag_1": [lag_1],
@@ -55,6 +63,17 @@ input_features = pd.DataFrame(
         "rolling_mean_7": [rolling_mean_7],
     }
 )
+
+# Convert to NumPy array (ensures correct shape)
+input_features_array = np.array(input_features).reshape(1, -1)
+
+# Make predictions with error handling
+try:
+    xgb_forecast = xgboost_model.predict(input_features_array)
+    linear_forecast = linear_model.predict(input_features_array)
+except Exception as e:
+    st.error(f"Error during prediction: {str(e)}")
+    st.stop()
 
 # Button to Trigger Prediction
 if st.sidebar.button("🔮 Predict"):
