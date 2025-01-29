@@ -31,7 +31,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import joblib
 
 # Load Holt-Winters model parameters
-holt_winters_params = joblib.load('holt_winters_model_params.pkl')
+holt_winters_params = joblib.load('holt_winters_model.pkl')
 
 # Function to reinitialize the Holt-Winters model
 def initialize_holt_winters(data):
