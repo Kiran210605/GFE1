@@ -40,7 +40,7 @@ def prepare_features(data, product):
 
     data.dropna(inplace=True)
 
-    # Ensure features are in the correct 2D shape
+    # Prepare features in the correct shape
     last_data = data.iloc[-1][["lag_1", "lag_7", "rolling_mean_7"]].values.reshape(1, -1)
     st.write(f"Features for {product}: {last_data}")  # Debugging feature preparation
     return last_data
@@ -51,7 +51,7 @@ def predict_order(date):
     for product in ["Tenderstem", "babycorn", "finebeans"]:
         features = prepare_features(data, product)
         try:
-            forecasted_order[product] = best_model.predict(features)[0]  # Use the trained model for prediction
+            forecasted_order[product] = best_model.predict(features)[0]  # Predict using the model
         except Exception as e:
             st.error(f"Error predicting {product}: {e}")
     return forecasted_order
