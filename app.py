@@ -42,7 +42,6 @@ def prepare_features(data, product):
 
     # Ensure features are in the correct 2D shape
     last_data = data.iloc[-1][["lag_1", "lag_7", "rolling_mean_7"]].values.reshape(1, -1)
-    st.write(f"Features for {product}: {last_data}")  # Debugging feature preparation
     return last_data
 
 # Function to predict orders for a given date
@@ -50,7 +49,10 @@ def predict_order(date):
     forecasted_order = {}
     for product in ["Tenderstem", "babycorn", "finebeans"]:
         features = prepare_features(data, product)
-        forecasted_order[product] = best_model.predict(features)[0]
+        try:
+            forecasted_order[product] = best_model.predict(features)[0]
+        except Exception as e:
+            st.error(f"Error predicting {product}: {e}")
     return forecasted_order
 
 # Streamlit UI
