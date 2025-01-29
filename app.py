@@ -70,11 +70,12 @@ st.write("Predict the order quantities for **Tenderstem, Babycorn, and Finebeans
 # Date input
 input_date = st.date_input("Select a date:", min_value=datetime(2025, 1, 1))
 
-print(f"Features for {product}: {features}")
-print(f"Shape of features: {features.shape}")
+# print(f"Features for {product}: {features}")
+# print(f"Shape of features: {features.shape}")
 
-mock_features = np.array([[400, 450, 375]]).reshape(1, -1)
-print(f"Mock Prediction: {best_model.predict(mock_features)}")
+# mock_features = np.array([[400, 450, 375]]).reshape(1, -1)
+# print(f"Mock Prediction: {best_model.predict(mock_features)}")
+
 
 # Predict button
 if st.button("Predict Order"):
