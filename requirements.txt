@@ -1,11 +1,9 @@
 streamlit
 pandas
 numpy
-matplotlib
-seaborn
-plotly
 statsmodels
-xgboost
 scikit-learn
+xgboost
 joblib
-fbprophet
+matplotlib
+plotly
