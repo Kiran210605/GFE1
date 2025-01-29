@@ -5,5 +5,3 @@ statsmodels
 scikit-learn
 xgboost
 joblib
-matplotlib
-plotly
