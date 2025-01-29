@@ -11,6 +11,7 @@ try:
     st.write("Model Loaded Successfully.")
 except Exception as e:
     st.error(f"Error loading model: {e}")
+    st.stop()
 
 # Simulate past data for feature generation
 def generate_past_data():
@@ -51,7 +52,7 @@ def predict_order(date):
     for product in ["Tenderstem", "babycorn", "finebeans"]:
         features = prepare_features(data, product)
         try:
-            forecasted_order[product] = best_model.predict(features)[0]  # Predict using the model
+            forecasted_order[product] = best_model.predict(features)[0]  # Use the trained model for prediction
         except Exception as e:
             st.error(f"Error predicting {product}: {e}")
     return forecasted_order
