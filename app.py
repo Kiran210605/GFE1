@@ -45,12 +45,12 @@ def initialize_holt_winters(data):
                                 initial_trend=holt_winters_params['initial_trend'],
                                 initial_seasonal=holt_winters_params['initial_seasonal'])
     return hw_model_fit
-# Reinitialize Holt-Winters model with the current data
-hw_model_fit = initialize_holt_winters(data['Tenderstem'])
+# # Reinitialize Holt-Winters model with the current data
+# hw_model_fit = initialize_holt_winters(data['Tenderstem'])
 
-# Forecast using the reinitialized model
-hw_forecast = hw_model_fit.forecast(steps=1)
-print(f"Holt-Winters Forecast: {hw_forecast[0]}")
+# # Forecast using the reinitialized model
+# hw_forecast = hw_model_fit.forecast(steps=1)
+# print(f"Holt-Winters Forecast: {hw_forecast[0]}")
 
 # Sidebar for Input
 st.sidebar.header("🛠️ User Input")
