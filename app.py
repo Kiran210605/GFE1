@@ -89,8 +89,14 @@ if st.sidebar.button("🔮 Predict"):
     st.header(f"📈 Predictions for {selected_product} on {selected_date.strftime('%A, %d %B %Y')}")
     
     # Holt-Winters Prediction
-    hw_forecast = holt_winters_model.forecast(steps=1)
-    st.markdown(f"**Holt-Winters Forecast:** {hw_forecast[0]:.2f} units")
+    # hw_forecast = holt_winters_model.forecast(steps=1)
+    # st.markdown(f"**Holt-Winters Forecast:** {hw_forecast[0]:.2f} units")
+    # Reinitialize Holt-Winters model with the current data
+    hw_model_fit = initialize_holt_winters(data['Tenderstem'])
+
+# Forecast using the reinitialized model
+    hw_forecast = hw_model_fit.forecast(steps=1)
+    print(f"Holt-Winters Forecast: {hw_forecast[0]}")
     
     # XGBoost Prediction
     xgb_forecast = xgboost_model.predict(input_features)
