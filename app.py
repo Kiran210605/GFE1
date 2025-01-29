@@ -1,85 +1,69 @@
 import streamlit as st
-import joblib
 import pandas as pd
 import numpy as np
+import joblib
 from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
 
-# Load the saved Linear Regression model
-linear_model = joblib.load('linear_model.pkl')
+# Load the trained model
+best_model = joblib.load("best_model.pkl")
 
-# Set Streamlit page configuration
-st.set_page_config(
-    page_title="📦 Inventory Demand Prediction App",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Simulate past data for feature generation
+def generate_past_data():
+    dates = pd.date_range(start="2025-01-01", periods=12 * 7, freq="D")  # 12 weeks of data (84 days)
+    tenderstem_demand = np.random.randint(150, 500, size=len(dates))
+    babycorn_demand = np.random.randint(100, 450, size=len(dates))
+    finebeans_demand = np.random.randint(200, 500, size=len(dates))
 
-# Title and Description
-st.title("📦 Inventory Demand Prediction App (Linear Regression)")
-st.markdown("""
-This app predicts inventory demand for **Tenderstem**, **Babycorn**, and **Finebeans** using:
-- **Linear Regression**
+    data = pd.DataFrame({
+        "Date": dates,
+        "Tenderstem": tenderstem_demand,
+        "babycorn": babycorn_demand,
+        "finebeans": finebeans_demand
+    })
 
-You can provide historical data and select a future date to get demand predictions.
-""")
+    data.set_index("Date", inplace=True)
+    return data
 
-# Sidebar for Input
-st.sidebar.header("🛠️ User Input")
+# Generate past data
+data = generate_past_data()
 
-# Date Input
-selected_date = st.sidebar.date_input(
-    "Select the Date for Prediction",
-    min_value=datetime.today(),
-    max_value=datetime.today() + timedelta(days=90),  # Limit to 3 months ahead
-)
+# Function to prepare features for prediction
+def prepare_features(data, product, forecast_date):
+    data["lag_1"] = data[product].shift(1)
+    data["lag_7"] = data[product].shift(7)
+    data["rolling_mean_7"] = data[product].rolling(window=7).mean()
+    
+    data.dropna(inplace=True)
 
-# Product Dropdown
-selected_product = st.sidebar.selectbox(
-    "Select Product",
-    ["Tenderstem", "babycorn", "finebeans"],
-)
+    # Get the latest available features
+    last_data = data.iloc[-1][["lag_1", "lag_7", "rolling_mean_7"]].values.reshape(1, -1)
+    
+    return last_data
 
-# Lag and Rolling Features Input
-st.sidebar.markdown("### Historical Data")
-lag_1 = st.sidebar.number_input(f"Enter Lag-1 Demand for {selected_product}", value=300, step=10)
-lag_7 = st.sidebar.number_input(f"Enter Lag-7 Demand for {selected_product}", value=280, step=10)
-rolling_mean_7 = st.sidebar.number_input(f"Enter Rolling Mean for Last 7 Days for {selected_product}", value=290, step=10)
+# Function to predict orders for a given date
+def predict_order(date):
+    forecasted_order = {}
 
-# Convert inputs into a DataFrame for predictions
-input_features = pd.DataFrame(
-    {
-        "lag_1": [lag_1],
-        "lag_7": [lag_7],
-        "rolling_mean_7": [rolling_mean_7],
-    }
-)
+    for product in ["Tenderstem", "babycorn", "finebeans"]:
+        features = prepare_features(data, product, date)
+        forecasted_order[product] = best_model.predict(features)[0]  # Predict using Linear Regression
 
-# Button to Trigger Prediction
-if st.sidebar.button("🔮 Predict"):
-    st.header(f"📈 Predictions for {selected_product} on {selected_date.strftime('%A, %d %B %Y')}")
+    return forecasted_order
 
-    # Linear Regression Prediction
-    linear_forecast = linear_model.predict(input_features)
-    st.subheader(f"📊 Predicted Demand: {linear_forecast[0]:.2f} units")
+# Streamlit UI
+st.title("Inventory Forecasting App 📈")
+st.write("Enter a date to predict the order quantities for **Tenderstem, Babycorn, and Finebeans**.")
 
-# Visualization Section
-st.markdown("---")
-st.header("📊 Historical Data and Trends")
-st.markdown("Visualize past demand trends to better understand seasonality and patterns.")
+# Date input from user
+input_date = st.date_input("Select a date:", min_value=datetime(2025, 1, 1))
 
-# Simulate some historical data for plotting
-dates = pd.date_range(start='2025-01-01', periods=90, freq='D')
-historical_demand = np.random.randint(150, 500, size=len(dates))
+# Predict button
+if st.button("Predict Order"):
+    forecasted_order = predict_order(input_date)
 
-historical_data = pd.DataFrame({
-    "Date": dates,
-    "Demand": historical_demand
-})
-historical_data.set_index("Date", inplace=True)
+    st.subheader(f"Predicted Order for {input_date.strftime('%A, %d %B %Y')}:")
+    for product, forecast in forecasted_order.items():
+        st.write(f"**{product}:** {forecast:.2f} units")
 
-# Line Chart for Historical Data
-st.line_chart(historical_data["Demand"])
-
-# Footer
-st.markdown("---")
-st.markdown("© 2025 Demand Prediction App. Powered by Streamlit.")
+st.write("This app uses **Linear Regression** as the best model for forecasting.")
