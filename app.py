@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-from datetime import datetime, timedelta
+from datetime import datetime
 from sklearn.linear_model import LinearRegression
 
 # Load the trained model
-best_model = joblib.load("best_model.pkl")
+try:
+    best_model = joblib.load("best_model.pkl")
+except Exception as e:
+    st.error(f"Error loading model: {e}")
 
 # Simulate past data for feature generation
 def generate_past_data():
@@ -29,26 +32,24 @@ def generate_past_data():
 data = generate_past_data()
 
 # Function to prepare features for prediction
-def prepare_features(data, product, forecast_date):
+def prepare_features(data, product):
     data["lag_1"] = data[product].shift(1)
     data["lag_7"] = data[product].shift(7)
     data["rolling_mean_7"] = data[product].rolling(window=7).mean()
     
     data.dropna(inplace=True)
 
-    # Get the latest available features
+    # Ensure features are in the correct 2D shape
     last_data = data.iloc[-1][["lag_1", "lag_7", "rolling_mean_7"]].values.reshape(1, -1)
-    
     return last_data
 
 # Function to predict orders for a given date
 def predict_order(date):
     forecasted_order = {}
-
     for product in ["Tenderstem", "babycorn", "finebeans"]:
-        features = prepare_features(data, product, date)
-        forecasted_order[product] = best_model.predict(features)[0]  # Predict using Linear Regression
-
+        features = prepare_features(data, product)
+        st.write(f"Features for {product}: {features}")  # Debugging features
+        forecasted_order[product] = best_model.predict(features)[0]
     return forecasted_order
 
 # Streamlit UI
