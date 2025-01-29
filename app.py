@@ -52,7 +52,8 @@ def predict_order(date):
     for product in ["Tenderstem", "babycorn", "finebeans"]:
         features = prepare_features(data, product)
         try:
-            forecasted_order[product] = best_model.predict(features)[0]  # Use the trained model for prediction
+            # Ensure model works with prepared features
+            forecasted_order[product] = best_model.predict(features)[0]
         except Exception as e:
             st.error(f"Error predicting {product}: {e}")
     return forecasted_order
