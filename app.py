@@ -93,7 +93,7 @@ def predict_order_on_date(input_date, data):
 
     return forecasted_order
 
-st.title("Sales Demand Prediction")
+st.title("Products Sales Prediction")
 st.write("Select a date to forecast the demand for Tenderstem, Babycorn, and Finebeans.")
 
 input_date = st.date_input("Select a date", min_value=pd.to_datetime('2025-01-01'), max_value=pd.to_datetime('2025-04-01'))
