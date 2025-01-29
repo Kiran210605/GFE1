@@ -2,92 +2,104 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-from datetime import datetime
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
 
-# Load the trained model
-try:
-    best_model = joblib.load("best_model.pkl")
-    st.write("Model Loaded Successfully.")
-except Exception as e:
-    st.error(f"Error loading model: {e}")
-    st.stop()
+# Simulate a dataset with data for 12 weeks (3 months)
+dates = pd.date_range(start='2025-01-01', periods=12*7, freq='D')
+tenderstem_demand = np.random.randint(150, 500, size=len(dates))
+babycorn_demand = np.random.randint(100, 450, size=len(dates))
+finebeans_demand = np.random.randint(200, 500, size=len(dates))
 
-# Generate simulated past data
-def generate_past_data():
-    dates = pd.date_range(start="2025-01-01", periods=12 * 7, freq="D")  # 12 weeks of data (84 days)
-    tenderstem_demand = np.random.randint(150, 500, size=len(dates))
-    babycorn_demand = np.random.randint(100, 450, size=len(dates))
-    finebeans_demand = np.random.randint(200, 500, size=len(dates))
+data = pd.DataFrame({
+    'Date': dates,
+    'Tenderstem': tenderstem_demand,
+    'babycorn': babycorn_demand,
+    'finebeans': finebeans_demand
+})
 
-    data = pd.DataFrame({
-        "Date": dates,
-        "Tenderstem": tenderstem_demand,
-        "babycorn": babycorn_demand,
-        "finebeans": finebeans_demand
-    })
+data.set_index('Date', inplace=True)
 
-    data.set_index("Date", inplace=True)
-    return data
+public_holidays = pd.to_datetime([
+    '2025-01-01', '2025-02-03', '2025-03-17', '2025-04-21',
+    '2025-05-05', '2025-06-02', '2025-08-04', '2025-10-27',
+    '2025-12-25', '2025-12-26'
+])
 
-# Generate past data
-data = generate_past_data()
+data['day_of_week'] = data.index.dayofweek
 
-# Function to prepare features
-def prepare_features(data, product):
-    # Create lag features
-    data["lag_1"] = data[product].shift(1)
-    data["lag_7"] = data[product].shift(7)
-    data["rolling_mean_7"] = data[product].rolling(window=7).mean()
+data['Tenderstem'] *= np.where(data['day_of_week'] >= 5, 1.2, 1.0)
+data['babycorn'] *= np.where(data['day_of_week'] >= 5, 1.2, 1.0)
+data['finebeans'] *= np.where(data['day_of_week'] >= 5, 1.2, 1.0)
 
-    # Drop NA values created by lagging
+data.loc[data.index.isin(public_holidays), ['Tenderstem', 'babycorn', 'finebeans']] *= 1.5
+
+def forecast_holt_winters(data, product, forecast_days=5):
+    product_data = data[product]
+    model = ExponentialSmoothing(product_data, trend='add', seasonal='add', seasonal_periods=7)
+    model_fit = model.fit()
+    forecast = model_fit.forecast(steps=forecast_days)
+    return forecast
+
+def forecast_xgboost(data, product):
+    data['lag_1'] = data[product].shift(1)
+    data['lag_7'] = data[product].shift(7)
+    data['rolling_mean_7'] = data[product].rolling(window=7).mean()
     data.dropna(inplace=True)
 
-    # Extract the last row for prediction
-    last_data = data.iloc[-1][["lag_1", "lag_7", "rolling_mean_7"]].values.reshape(1, -1)
-    st.write(f"Features for {product}: {last_data}")  # Debugging feature preparation
-    return last_data
+    X = data[['lag_1', 'lag_7', 'rolling_mean_7']]
+    y = data[product]
 
-# Function to predict order for a date
-def predict_order(date):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+    model = xgb.XGBRegressor(objective='reg:squarederror')
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    return model.predict(X.tail(1))[0]
+
+def forecast_linear_regression(data, product):
+    data['lag_1'] = data[product].shift(1)
+    data['lag_7'] = data[product].shift(7)
+    data['rolling_mean_7'] = data[product].rolling(window=7).mean()
+    data.dropna(inplace=True)
+
+    X = data[['lag_1', 'lag_7', 'rolling_mean_7']]
+    y = data[product]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+
+    return model.predict(X.tail(1))[0]
+
+def predict_order_on_date(input_date, data):
+    input_date = pd.to_datetime(input_date)
     forecasted_order = {}
-    for product in ["Tenderstem", "babycorn", "finebeans"]:
-        # Prepare features
-        features = prepare_features(data, product)
 
-        try:
-            # Make predictions
-            forecasted_order[product] = best_model.predict(features)[0]
-        except Exception as e:
-            st.error(f"Error predicting {product}: {e}")
-            forecasted_order[product] = None
+    for product in ['Tenderstem', 'babycorn', 'finebeans']:
+        hw_forecast = forecast_holt_winters(data, product)
+        forecasted_order[product] = hw_forecast[0]
+
+    for product in ['Tenderstem', 'babycorn', 'finebeans']:
+        xgb_forecast = forecast_xgboost(data, product)
+        forecasted_order[product] = (forecasted_order[product] + xgb_forecast) / 2
+
+    for product in ['Tenderstem', 'babycorn', 'finebeans']:
+        lr_forecast = forecast_linear_regression(data, product)
+        forecasted_order[product] = (forecasted_order[product] + lr_forecast) / 2
+
     return forecasted_order
 
-# Streamlit UI
-st.title("Inventory Forecasting App 📈")
-st.write("Predict the order quantities for **Tenderstem, Babycorn, and Finebeans**.")
+st.title("Sales Demand Prediction")
+st.write("Select a date to forecast the demand for Tenderstem, Babycorn, and Finebeans.")
 
-# Date input
-input_date = st.date_input("Select a date:", min_value=datetime(2025, 1, 1))
+input_date = st.date_input("Select a date", min_value=pd.to_datetime('2025-01-01'), max_value=pd.to_datetime('2025-04-01'))
 
-# print(f"Features for {product}: {features}")
-# print(f"Shape of features: {features.shape}")
-
-# mock_features = np.array([[400, 450, 375]]).reshape(1, -1)
-# print(f"Mock Prediction: {best_model.predict(mock_features)}")
-
-
-# Predict button
 if st.button("Predict Order"):
-    try:
-        forecasted_order = predict_order(input_date)
-        st.subheader(f"Predicted Order for {input_date.strftime('%A, %d %B %Y')}:")
-        for product, forecast in forecasted_order.items():
-            if forecast is not None:
-                st.write(f"**{product}:** {forecast:.2f} units")
-            else:
-                st.write(f"**{product}:** Prediction failed.")
-    except Exception as e:
-        st.error(f"Error during prediction: {e}")
-
-st.write("This app uses **Linear Regression** as the best model for forecasting.")
+    forecasted_order = predict_order_on_date(input_date, data)
+    st.write(f"### Predicted Orders for {input_date.strftime('%A, %d %B %Y')}:")
+    for product, forecast in forecasted_order.items():
+        st.write(f"- **{product}:** {forecast:.2f} units")
