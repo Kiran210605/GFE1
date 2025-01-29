@@ -2,11 +2,17 @@ import streamlit as st
 import joblib
 import pandas as pd
 import numpy as np
+import xgboost as xgb
 from datetime import datetime, timedelta
 
-# Load the saved models (Ensure they are in the same directory as this script)
-xgboost_model = joblib.load('xgboost_model.pkl')  # XGBoost model
-linear_model = joblib.load('linear_model.pkl')  # Linear Regression model
+# Load the models with feature names
+try:
+    xgboost_model, feature_names = joblib.load("xgboost_model.pkl")
+    linear_model, _ = joblib.load("linear_model.pkl")
+    st.success("✅ Models loaded successfully!")
+except Exception as e:
+    st.error(f"❌ Model loading failed: {str(e)}")
+    st.stop()
 
 # Set Streamlit page configuration
 st.set_page_config(
@@ -32,7 +38,7 @@ st.sidebar.header("🛠️ User Input")
 selected_date = st.sidebar.date_input(
     "Select the Date for Prediction",
     min_value=datetime.today(),
-    max_value=datetime.today() + timedelta(days=90),  # Limit to 3 months ahead
+    max_value=datetime.today() + timedelta(days=90),
 )
 
 # Product Dropdown
@@ -47,56 +53,38 @@ lag_1 = st.sidebar.number_input(f"Enter Lag-1 Demand for {selected_product}", va
 lag_7 = st.sidebar.number_input(f"Enter Lag-7 Demand for {selected_product}", value=280, step=10)
 rolling_mean_7 = st.sidebar.number_input(f"Enter Rolling Mean for Last 7 Days for {selected_product}", value=290, step=10)
 
-# Convert inputs into a DataFrame for predictions
-# input_features = pd.DataFrame(
-#     {
-#         "lag_1": [lag_1],
-#         "lag_7": [lag_7],
-#         "rolling_mean_7": [rolling_mean_7],
-#     }
-# )
-# Ensure the input is in the correct format
-input_features = pd.DataFrame(
-    {
-        "lag_1": [lag_1],
-        "lag_7": [lag_7],
-        "rolling_mean_7": [rolling_mean_7],
-    }
-)
+# Prepare the input data
+input_features = pd.DataFrame([[lag_1, lag_7, rolling_mean_7]], columns=feature_names)
 
-# Convert to NumPy array (ensures correct shape)
-input_features_array = np.array(input_features).reshape(1, -1)
-
-# Make predictions with error handling
-try:
-    xgb_forecast = xgboost_model.predict(input_features_array)
-    linear_forecast = linear_model.predict(input_features_array)
-except Exception as e:
-    st.error(f"Error during prediction: {str(e)}")
-    st.stop()
+# Convert input to DMatrix for XGBoost
+dtest = xgb.DMatrix(input_features)
 
 # Button to Trigger Prediction
 if st.sidebar.button("🔮 Predict"):
     st.header(f"📈 Predictions for {selected_product} on {selected_date.strftime('%A, %d %B %Y')}")
 
-    # XGBoost Prediction
-    xgb_forecast = xgboost_model.predict(input_features)
-    st.markdown(f"**XGBoost Forecast:** {xgb_forecast[0]:.2f} units")
+    try:
+        # XGBoost Prediction
+        xgb_forecast = xgboost_model.predict(dtest)
+        st.markdown(f"**XGBoost Forecast:** {xgb_forecast[0]:.2f} units")
 
-    # Linear Regression Prediction
-    linear_forecast = linear_model.predict(input_features)
-    st.markdown(f"**Linear Regression Forecast:** {linear_forecast[0]:.2f} units")
+        # Linear Regression Prediction
+        linear_forecast = linear_model.predict(input_features)
+        st.markdown(f"**Linear Regression Forecast:** {linear_forecast[0]:.2f} units")
 
-    # Average Prediction
-    final_forecast = (xgb_forecast[0] + linear_forecast[0]) / 2
-    st.subheader(f"📊 Final Predicted Demand: {final_forecast:.2f} units")
+        # Final Averaged Prediction
+        final_forecast = (xgb_forecast[0] + linear_forecast[0]) / 2
+        st.subheader(f"📊 Final Predicted Demand: {final_forecast:.2f} units")
+
+    except Exception as e:
+        st.error(f"❌ Prediction Error: {str(e)}")
 
 # Visualization Section
 st.markdown("---")
 st.header("📊 Historical Data and Trends")
 st.markdown("Visualize past demand trends to better understand seasonality and patterns.")
 
-# Simulate some historical data for plotting
+# Simulated historical data for visualization
 dates = pd.date_range(start='2025-01-01', periods=90, freq='D')
 historical_demand = np.random.randint(150, 500, size=len(dates))
 
